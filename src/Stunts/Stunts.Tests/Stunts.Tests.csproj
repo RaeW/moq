@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net471</TargetFramework>
+    <LangVersion>Latest</LangVersion>
     <IncludeXunit>true</IncludeXunit>
     <IncludeRoslyn>true</IncludeRoslyn>
     <IncludeMSBuild>true</IncludeMSBuild>

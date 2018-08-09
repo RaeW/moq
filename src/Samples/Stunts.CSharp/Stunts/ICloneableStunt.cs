@@ -7,7 +7,6 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-using Sample;
 using System;
 using System.Collections.ObjectModel;
 using System.Reflection;
@@ -16,7 +15,7 @@ using System.Runtime.CompilerServices;
 
 namespace Stunts
 {
-    public partial class IBarStunt : IBar, IStunt
+    public partial class ICloneableStunt : ICloneable, IStunt
     {
         readonly BehaviorPipeline pipeline = new BehaviorPipeline();
 
@@ -24,7 +23,7 @@ namespace Stunts
         ObservableCollection<IStuntBehavior> IStunt.Behaviors => pipeline.Behaviors;
 
         [CompilerGenerated]
-        public void Bar() => pipeline.Execute(new MethodInvocation(this, MethodBase.GetCurrentMethod()));
+        public object Clone() => pipeline.Execute<object>(new MethodInvocation(this, MethodBase.GetCurrentMethod()));
         [CompilerGenerated]
         public override bool Equals(object obj) => pipeline.Execute<bool>(new MethodInvocation(this, MethodBase.GetCurrentMethod(), obj));
         [CompilerGenerated]

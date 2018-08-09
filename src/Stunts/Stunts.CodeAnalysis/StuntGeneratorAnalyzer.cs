@@ -4,7 +4,6 @@ using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
-using Stunts.Properties;
 
 namespace Stunts
 {
@@ -18,9 +17,9 @@ namespace Stunts
     [DiagnosticAnalyzer(LanguageNames.CSharp, LanguageNames.VisualBasic)]
     public class StuntGeneratorAnalyzer : DiagnosticAnalyzer
     {
-        readonly NamingConvention naming;
-        readonly bool recursive;
-        Type generatorAttribute;
+        private readonly NamingConvention naming;
+        private readonly bool recursive;
+        private Type generatorAttribute;
 
         /// <summary>
         /// Instantiates the analyzer with the default <see cref="NamingConvention"/> and 
@@ -68,54 +67,59 @@ namespace Stunts
             context.RegisterSyntaxNodeAction(AnalyzeSyntaxNode, Microsoft.CodeAnalysis.VisualBasic.SyntaxKind.SimpleMemberAccessExpression);
         }
 
-        void AnalyzeSyntaxNode(SyntaxNodeAnalysisContext context)
+        private void AnalyzeSyntaxNode(SyntaxNodeAnalysisContext context)
         {
             // Get the matching symbol for the given generator attribute from the current compilation.
             var generator = context.Compilation.GetTypeByMetadataName(generatorAttribute.FullName);
             if (generator == null)
+            {
                 // This may be an extender authoring error, but another analyzer should ensure proper 
                 // metadata references exist. Typically, the same NuGet package that adds this analyzer
                 // also adds the required assembly references, so this should never happen anyway.
                 return;
+            }
 
             var symbol = context.Compilation.GetSemanticModel(context.Node.SyntaxTree).GetSymbolInfo(context.Node);
-            if (symbol.Symbol?.Kind == SymbolKind.Method)
+            if (symbol.Symbol?.Kind != SymbolKind.Method)
             {
-                var method = (IMethodSymbol)symbol.Symbol;
-                if (method.GetAttributes().Any(x => x.AttributeClass == generator) && 
-                    // We don't generate anything if generator is applied to a non-generic method.
-                    !method.TypeArguments.IsDefaultOrEmpty && 
-                    method.TypeArguments.TryValidateGeneratorTypes(out _))
+                return;
+            }
+
+            var method = (IMethodSymbol)symbol.Symbol;
+            if (method.GetAttributes().Any(x => x.AttributeClass == generator) &&
+                // We don't generate anything if generator is applied to a non-generic method.
+                !method.TypeArguments.IsDefaultOrEmpty &&
+                method.TypeArguments.TryValidateGeneratorTypes(out _))
+            {
+                var name = naming.GetFullName(method.TypeArguments.OfType<INamedTypeSymbol>());
+                var compilationErrors = new Lazy<Diagnostic[]>(() => context.Compilation.GetCompilationErrors());
+                HashSet<string> recursiveSymbols;
+
+                if (recursive)
                 {
-                    var name = naming.GetFullName(method.TypeArguments.OfType<INamedTypeSymbol>());
-                    var compilationErrors = new Lazy<Diagnostic[]>(() => context.Compilation.GetCompilationErrors());
-                    HashSet<string> recursiveSymbols;
+                    // Collect recursive symbols to generate/update as needed.
+                    recursiveSymbols = new HashSet<string>(method.TypeArguments.OfType<INamedTypeSymbol>().InterceptableRecursively()
+                        .Where(x =>
+                        {
+                            var candidate = context.Compilation.GetTypeByMetadataName(naming.GetFullName(new[] { x }));
+                            return candidate == null || candidate.HasDiagnostic(compilationErrors.Value);
+                        })
+                        .Select(x => x.ToFullMetadataName()));
+                }
+                else
+                {
+                    recursiveSymbols = new HashSet<string>();
+                }
 
-                    if (recursive)
-                    {
-                        // Collect recursive symbols to generate/update as needed.
-                        recursiveSymbols = new HashSet<string>(method.TypeArguments.OfType<INamedTypeSymbol>().InterceptableRecursively()
-                            .Where(x =>
-                            {
-                                var candidate = context.Compilation.GetTypeByMetadataName(naming.GetFullName(new[] { x }));
-                                return candidate == null || candidate.HasDiagnostic(compilationErrors.Value);
-                            })
-                            .Select(x => x.ToFullMetadataName()));                        
-                    }
-                    else
-                    {
-                        recursiveSymbols = new HashSet<string>();
-                    }
-
-                    // See if the stunt already exists
-                    var stunt = context.Compilation.GetTypeByMetadataName(name);
-                    if (stunt == null)
-                    {
-                        var diagnostic = Diagnostic.Create(
-                            MissingDiagnostic,
-                            context.Node.GetLocation(),
-                            new Dictionary<string, string>
-                            {
+                // See if the stunt already exists
+                var stunt = context.Compilation.GetTypeByMetadataName(name);
+                if (stunt == null)
+                {
+                    var diagnostic = Diagnostic.Create(
+                        MissingDiagnostic,
+                        context.Node.GetLocation(),
+                        new Dictionary<string, string>
+                        {
                                 { "TargetFullName", name },
                                 { "Symbols", string.Join("|", method.TypeArguments
                                     .OfType<INamedTypeSymbol>().Select(x => x.ToFullMetadataName())) },
@@ -124,23 +128,25 @@ namespace Stunts
                                 // The code action can therefore simply act on them, without 
                                 // further inquiries to the compilation.
                                 { "RecursiveSymbols", string.Join("|", recursiveSymbols) },
-                            }.ToImmutableDictionary(),
-                            name);
+                        }.ToImmutableDictionary(),
+                        name);
 
-                        context.ReportDiagnostic(diagnostic);
-                    }
-                    else
+                    context.ReportDiagnostic(diagnostic);
+                }
+                else
+                {
+                    // See if the symbol has any compilation error diagnostics associated
+                    if (stunt.HasDiagnostic(compilationErrors.Value) ||
+                       (recursive && recursiveSymbols.Any()))
                     {
-                        // See if the symbol has any compilation error diagnostics associated
-                        if (stunt.HasDiagnostic(compilationErrors.Value) ||
-                           (recursive && recursiveSymbols.Any()))
-                        {
-                            // If there are compilation errors, we should update the proxy.
-                            var diagnostic = Diagnostic.Create(
-                                OutdatedDiagnostic,
-                                context.Node.GetLocation(),
-                                new Dictionary<string, string>
-                                {
+                        // If the existing 
+                        
+                        // If there are compilation errors, we should update the proxy.
+                        var diagnostic = Diagnostic.Create(
+                            OutdatedDiagnostic,
+                            context.Node.GetLocation(),
+                            new Dictionary<string, string>
+                            {
                                     { "TargetFullName", name },
                                     { "Symbols", string.Join("|", method.TypeArguments
                                         .OfType<INamedTypeSymbol>().Select(x => x.ToFullMetadataName())) },
@@ -148,11 +154,10 @@ namespace Stunts
                                     // Different diagnostics exist only to customize the message 
                                     // displayed to the user.
                                     { "RecursiveSymbols", string.Join("|", recursiveSymbols) },
-                                }.ToImmutableDictionary(),
-                                name);
+                            }.ToImmutableDictionary(),
+                            name);
 
-                            context.ReportDiagnostic(diagnostic);
-                        }
+                        context.ReportDiagnostic(diagnostic);
                     }
                 }
             }

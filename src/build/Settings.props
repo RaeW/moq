@@ -3,6 +3,8 @@
   <Import Project="Packaging.props" Condition="'$(MSBuildProjectExtension)' == '.nuproj'" />
 
   <PropertyGroup>
+    <SuppressNETCoreSdkPreviewMessage>true</SuppressNETCoreSdkPreviewMessage>
+    <ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>None</ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>
     <LangVersion>Latest</LangVersion>
 
     <!-- We always target a single framework, so we don't need the added subdir -->
@@ -12,7 +14,7 @@
     <DefaultItemExcludes>$(DefaultExcludeItems);*.binlog</DefaultItemExcludes>
     <UseSharedCompilation>true</UseSharedCompilation>
 
-    <RootPath>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\'))</RootPath>
+    <RootPath>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)..\..'))</RootPath>
 
     <!-- Don't allow NuGet to fallback to the implicit folder since that generates CI warnings -->
     <DisableImplicitNuGetFallbackFolder>true</DisableImplicitNuGetFallbackFolder>
@@ -33,7 +35,7 @@
     <ThisAssemblyProjectProperty Include="FileVersion" />
     <ThisAssemblyProjectProperty Include="InformationalVersion" />
   </ItemGroup>
-  
+
   <!-- IsTestProject is set by xunit  -->
   <Import Project="Settings.Tests.props" Condition="'$(IsTestProject)' == 'true'" />
 

@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <MicrosoftBuildVersion>15.7.179</MicrosoftBuildVersion>
-    <RoslynVersion>2.9.0-beta*</RoslynVersion>
+    <RoslynVersion>2.9.0-beta8-63119-12</RoslynVersion>
     <XunitVersion>2.4.0</XunitVersion>
   </PropertyGroup>
 

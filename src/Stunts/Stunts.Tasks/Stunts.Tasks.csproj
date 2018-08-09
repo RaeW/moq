@@ -1,0 +1,70 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net47</TargetFramework>
+    <IncludeRoslyn>true</IncludeRoslyn>
+    <IncludeMSBuild>true</IncludeMSBuild>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="Stunts.targets" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Stunts.targets">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="$(RoslynVersion)" Pack="false" />
+    <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.Workspaces" Version="$(RoslynVersion)" Pack="false" />
+    <PackageReference Include="Microsoft.Extensions.DependencyModel" Version="2.0.4" Pack="false" CopyLocal="true" />
+    <PackageReference Include="StreamJsonRpc" Version="1.3.23" CopyLocal="true" />
+    <PackageReference Include="Xamarin.Build.AsyncTask" Version="0.2.8" CopyLocal="true" />
+    <CopyLocalPackageId Include="Microsoft.DotNet.PlatformAbstractions" />
+    <CopyLocalPackageId Include="Microsoft.CodeAnalysis" />
+    <CopyLocalPackageId Include="Newtonsoft.Json" />
+    <CopyLocalPackageId Include="Microsoft.VisualStudio.Threading" />
+    <CopyLocalPackageId Include="Microsoft.VisualStudio.Validation" />
+    <CopyLocalPackageId Include="System.Threading.Tasks.Extensions" />
+    <CopyLocalPackageId Include="ManagedEsent" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Microsoft.CSharp" />
+  </ItemGroup>
+
+  <Target Name="EnsureCopyLocalAssemblies" AfterTargets="ResolvePackageAssets" DependsOnTargets="_CollectCopyLocalPackageIds;_AnnotateCopyLocalItems;_RemoveNonCopyLocalItems" />
+
+  <Target Name="_CollectCopyLocalPackageIds">
+    <ItemGroup>
+      <CopyLocalPackageId Include="@(PackageReference -&gt; WithMetadataValue('CopyLocal', 'true'))" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_AnnotateCopyLocalItems" Inputs="@(CopyLocalPackageId)" Outputs="%(CopyLocalPackageId.Identity)-BATCH">
+    <PropertyGroup>
+      <_CopyLocalPackageId>@(CopyLocalPackageId)</_CopyLocalPackageId>
+    </PropertyGroup>
+    <ItemGroup>
+      <RuntimeCopyLocalItems Condition="$([MSBuild]::ValueOrDefault('%(RuntimeCopyLocalItems.NuGetPackageId)', '').StartsWith('$(_CopyLocalPackageId)'))">
+        <CopyLocal>true</CopyLocal>
+      </RuntimeCopyLocalItems>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_RemoveNonCopyLocalItems">
+    <ItemGroup>
+      <RuntimeCopyLocalItems Remove="@(RuntimeCopyLocalItems)" Condition="'%(RuntimeCopyLocalItems.CopyLocal)' != 'true'" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_RemoveLocalizedResources" AfterTargets="ResolvePackageAssets">
+    <ItemGroup>
+      <ResourceCopyLocalItems Remove="@(ResourceCopyLocalItems)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

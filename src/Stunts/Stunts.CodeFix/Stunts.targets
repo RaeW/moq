@@ -1,5 +1,9 @@
 ﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <!-- Because our analyzers are intended to be design-time only, 
+  <PropertyGroup>
+    <WarningsAsErrors Condition="'$(StuntWarningsAsErrors)' == 'true'">$(WarningsAsErrors);ST001;ST002</WarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- Because our code fixers are intended to be design-time only, 
        we cannot just include them in the package `analyzer` folder.
        Instead, we have to use an alternative mechanism that only 
        adds them for VS. The chosen hook is to check for the DesignTimeBuild 

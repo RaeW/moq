@@ -1,0 +1,72 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <UsingTask TaskName="SetupEventLogger" AssemblyFile="Stunts.Tasks.dll" />
+  <UsingTask TaskName="CollectEvents" AssemblyFile="Stunts.Tasks.dll" />
+  <UsingTask TaskName="ResolveLocalAssemblies" AssemblyFile="Stunts.Tasks.dll" />
+  <UsingTask TaskName="GenerateStunts" AssemblyFile="Stunts.Tasks.dll" />
+
+  <PropertyGroup>
+    <DebugTask Condition="'$(DebugTask)' == ''">false</DebugTask>
+    <DebugConsole Condition="'$(DebugConsole)' == ''">false</DebugConsole>
+  </PropertyGroup>
+
+  <Target Name="SetupEventLogger" BeforeTargets="CoreCompile">
+    <SetupEventLogger Debug="$(DebugTask)" />
+  </Target>
+
+  <Target Name="ShowWarnings"
+          AfterTargets="CoreCompile"
+          DependsOnTargets="CollectEvents;CollectGeneratorWarnings"
+          Returns="@(AnalyzerWarning)">
+
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="Compile"
+             Properties="WarningsAsErrors=@(AnalyzerWarning)" />
+          
+  </Target>
+
+  <Target Name="CollectEvents" Returns="@(Warning)">
+    <CollectEvents Debug="$(DebugTask)" Dispose="true">
+      <Output TaskParameter="Warnings" ItemName="Warning" />
+    </CollectEvents>
+  </Target>
+
+  <ItemGroup>
+    <GeneratorWarning Include="ST;MOQ" />
+  </ItemGroup>
+
+  <Target Name="CollectGeneratorWarnings" Inputs="@(GeneratorWarning)" Outputs="%(GeneratorWarning.Identity)" Returns="@(AnalyzerWarning)">
+    <PropertyGroup>
+      <GeneratorPrefix>%(GeneratorWarning.Identity)</GeneratorPrefix>
+    </PropertyGroup>
+    <ItemGroup>
+      <AnalyzerWarning Include="@(Warning)" Condition="$([MSBuild]::ValueOrDefault('%(Identity)', '').StartsWith('$(GeneratorPrefix)'))" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="Test">
+    <ItemGroup Condition="'$(VsInstallRoot)' != ''">
+      <AssemblySearchPath Include="$(VsInstallRoot)\Common7\IDE\CommonExtensions\Microsoft\ManagedLanguages\VBCSharp\LanguageServices" />
+      <AssemblySearchPath Include="$(VsInstallRoot)\Common7\IDE\PublicAssemblies" />
+      <AssemblySearchPath Include="$(VsInstallRoot)\Common7\IDE\PrivateAssemblies" />
+    </ItemGroup>
+    <ItemGroup>
+      <AssemblySearchPath Include="$(MSBuildBinPath)" />
+      <AssemblySearchPath Include="$(MSBuildThisFileDirectory)" />
+    </ItemGroup>
+    <ResolveLocalAssemblies />
+    <GenerateStunts ProjectFullPath="$(MSBuildProjectDirectory)\..\..\..\Stunts.Tests\Stunts.Tests.csproj"
+                    ToolsPath="$(MSBuildProjectDirectory)\..\..\..\Stunts.ProjectReader\bin\Debug"
+                    AssemblySearchPath="@(AssemblySearchPath)"
+                    MSBuildBinPath="$(MSBuildBinPath)"
+                    DebugTask="$(DebugTask)"
+                    DebugConsole="$(DebugConsole)"
+                    BuildingInsideVisualStudio="$(BuildingInsideVisualStudio)" />
+    <GenerateStunts ProjectFullPath="$(MSBuildProjectDirectory)\..\..\..\Stunts.Sdk\Stunts.Sdk.csproj"
+                    ToolsPath="$(MSBuildProjectDirectory)\..\..\..\Stunts.ProjectReader\bin\Debug"
+                    AssemblySearchPath="@(AssemblySearchPath)"
+                    MSBuildBinPath="$(MSBuildBinPath)"
+                    BuildingInsideVisualStudio="$(BuildingInsideVisualStudio)" />
+  </Target>
+  
+</Project>

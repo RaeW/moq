@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Stunts.Tasks": {
+      "commandName": "Executable",
+      "executablePath": "$(VsInstallRoot)\\MSBuild\\$(VisualStudioVersion)\\Bin\\MSBuild.exe",
+      "commandLineArgs": "Stunts.targets",
+      "workingDirectory": "$(TargetDir)"
+    }
+  }
+}
